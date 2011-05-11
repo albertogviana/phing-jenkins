@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project name="Teste" basedir="." default="main">
+    
+    <property name="builddir" value="build" />
+    <property name="source" value="library" />
+    <property name="testdir" value="test" />
+     
+    
+    <!-- ============================================  -->
+    <!-- (DEFAULT) Target: main                        -->
+    <!-- ============================================  -->
+    <target name="main" depends="prepare,phpunit,phpdepend,phpmd,phpcpd,phpdoc,phpcs,phploc,phpcb">
+        <echo msg="Build Finished" />
+    </target>
+    
+    <!-- ============================================  -->
+    <!-- (DEFAULT) Target: prepare                     -->
+    <!-- ============================================  -->
+    <target name="prepare" >
+        <echo msg="Making directory build" />
+        
+        <delete dir="${builddir}/api" includeemptydirs="true" verbose="true" failonerror="true" />
+        <delete dir="${builddir}/code-browser" includeemptydirs="true" verbose="true" failonerror="true" />
+        <delete dir="${builddir}/coverage" includeemptydirs="true" verbose="true" failonerror="true" />
+        <delete dir="${builddir}/logs" includeemptydirs="true" verbose="true" failonerror="true" />
+        <delete dir="${builddir}/pdepend" includeemptydirs="true" verbose="true" failonerror="true" />
+       
+        <mkdir dir="${builddir}/api"/>
+        <mkdir dir="${builddir}/code-browser"/>
+        <mkdir dir="${builddir}/coverage"/>
+        <mkdir dir="${builddir}/logs"/>
+        <mkdir dir="${builddir}/pdepend"/>        
+    </target>
+                
+    <!-- ============================================  -->
+    <!-- Target: Unit test                             -->
+    <!-- ============================================  -->
+    <target name="phpunit" description="Run unit tests using PHPUnit and generates junit.xml and clover.xml">
+        <echo msg="Beginning of the tests" />
+        <exec 
+            command="phpunit --bootstrap=${testdir}/bootstrap.php --log-junit ${builddir}/logs/junit.xml 
+                             --coverage-clover ${builddir}/logs/clover.xml --coverage-html ${builddir}/coverage/ 
+                             ${testdir}"
+            />
+    </target>
+    
+    <!-- ============================================  -->
+    <!-- Target: PHP Depend                            -->
+    <!-- ============================================  -->
+    <target name="phpdepend" description="Generate jdepend.xml and software metrics charts using PHP_Depend">
+        <exec command="pdepend --jdepend-xml=${builddir}/logs/jdepend.xml 
+                               --jdepend-chart=${builddir}/pdepend/dependencies.svg 
+                               --overview-pyramid=${builddir}/pdepend/overview-pyramid.svg ${source}" 
+              escape="false" />
+    </target>
+    
+    <!-- ============================================  -->
+    <!-- Target: PHPMD (Project Mess Detector)         -->
+    <!-- ============================================  -->
+    <target name="phpmd" description="Generate pmd.xml using PHPMD">
+        <phpmd>
+            <fileset dir="${source}">
+                <include name="**/*.php" />
+            </fileset>
+            <formatter type="xml" outfile="${builddir}/logs/pmd.xml"/>
+        </phpmd>
+    </target>   
+
+    <!-- ============================================  -->
+    <!-- Target: PHPCPD (Copy/Paste Detector)          -->
+    <!-- ============================================  -->
+    <target name="phpcpd" description="Generate pmd-cpd.xml using PHPCPD">
+        <phpcpd>
+            <fileset dir="${source}" id="filestocpd">
+                <include name="**/*.php" />
+            </fileset>
+            <formatter type="pmd" outfile="${builddir}/logs/pmd-cpd.xml"/>
+        </phpcpd>
+    </target>
+    
+    <!-- ============================================  -->
+    <!-- Target: PHPCS (PHP Code Sniffer)              -->
+    <!-- ============================================  -->
+    <target name="phpcs" description="Generate checkstyle.xml using PHP_CodeSniffer">
+        <exec command="phpcs --standard=ZEND --report=checkstyle ${source}/ > ${builddir}/logs/checkstyle.xml" 
+              escape="false" />
+    </target>
+      
+    <!-- ============================================  -->
+    <!-- Target: PHPDoc                                -->
+    <!-- ============================================  -->
+    <target name="phpdoc" description="Generate API documentation using PHPDocumentor">
+        <phpdoc title="API Documentation"
+              destdir="${builddir}/api"
+              sourcecode="false"
+              output="HTML:Smarty:PHP">
+            <fileset dir="${source}">
+                <include name="**/*.php" />
+            </fileset>
+            <projdocfileset dir="${builddir}/api">
+                <include name="README" />
+                <include name="INSTALL" />
+                <include name="CHANGELOG" />
+            </projdocfileset>
+        </phpdoc>
+    </target>
+    
+    <!-- ============================================  -->
+    <!-- Target: PHPLoc (PHP Lines of Code)              -->
+    <!-- ============================================  -->
+    <target name="phploc" description="Generate phploc.csv">
+        <exec command="phploc --log-csv ${builddir}/logs/phploc.csv ${source} " />
+    </target>
+    
+    <!-- ============================================  -->
+    <!-- Target: PHPCB (PHP Code Browser)              -->
+    <!-- ============================================  -->
+    <target name="phpcb" description="Aggregate tool output with PHP_CodeBrowser">
+        <exec command="phpcb --log    ${builddir}/logs
+              --source ${source}
+              --output ${builddir}/code-browser" />
+    </target>
+    
+</project>
