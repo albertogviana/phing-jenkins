@@ -1,16 +1,34 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
-<project name="Teste" basedir="." default="main">
+<?xml version="1.0" encoding="utf-8"?>
+<project name="My Project" basedir="." default="main">
     
     <property name="builddir" value="build" />
-    <property name="source" value="library" />
-    <property name="testdir" value="test" />
+    <property name="source" value="library/MyLibrary" />
+    <property name="testdir" value="tests" />
      
-    
+    <fileset id="php-files" dir="${project.basedir}">
+        <include name="**/*.php"/>
+        <exclude name="library/Zend/**"/>
+        <exclude name="tests/**"/>
+    </fileset>
+        
     <!-- ============================================  -->
     <!-- (DEFAULT) Target: main                        -->
     <!-- ============================================  -->
-    <target name="main" depends="prepare,phpunit,phpdepend,phpmd,phpcpd,phpdoc,phpcs,phploc,phpcb">
-        <echo msg="Build Finished" />
+    <target name="main" description="Start analyzing our application">
+        <echo msg="Start Build" />
+        
+        <phingCall target="prepare" />
+        <phingCall target="phpunit" />
+        <phingCall target="pdepend" />
+        <phingCall target="phpmd" />
+        <phingCall target="phpcpd" />
+        <phingCall target="phpdoc" />
+        <phingCall target="docblox" />
+        <phingCall target="phpcs" />
+        <phingCall target="phploc" />
+        <phingCall target="phpcb" />
+        
+        <echo msg="Finished Build" />
     </target>
     
     <!-- ============================================  -->
@@ -26,6 +44,7 @@
         <delete dir="${builddir}/pdepend" includeemptydirs="true" verbose="true" failonerror="true" />
        
         <mkdir dir="${builddir}/api"/>
+        <mkdir dir="${builddir}/api/docblox"/>
         <mkdir dir="${builddir}/code-browser"/>
         <mkdir dir="${builddir}/coverage"/>
         <mkdir dir="${builddir}/logs"/>
@@ -37,9 +56,11 @@
     <!-- ============================================  -->
     <target name="phpunit" description="Run unit tests using PHPUnit and generates junit.xml and clover.xml">
         <echo msg="Beginning of the tests" />
-        <exec 
-            command="phpunit --bootstrap=${testdir}/bootstrap.php --log-junit ${builddir}/logs/junit.xml 
-                             --coverage-clover ${builddir}/logs/clover.xml --coverage-html ${builddir}/coverage/ 
+        <exec command="phpunit --bootstrap=${testdir}/bootstrap.php 
+                             --configuration ${testdir}/phpunit.xml 
+                             --log-junit ${builddir}/logs/junit.xml 
+                             --coverage-clover ${builddir}/logs/clover.xml 
+                             --coverage-html ${builddir}/coverage/ 
                              ${testdir}"
             />
     </target>
@@ -47,10 +68,13 @@
     <!-- ============================================  -->
     <!-- Target: PHP Depend                            -->
     <!-- ============================================  -->
-    <target name="phpdepend" description="Generate jdepend.xml and software metrics charts using PHP_Depend">
+    <target name="pdepend" description="Calculate dependencies of the code base">
         <exec command="pdepend --jdepend-xml=${builddir}/logs/jdepend.xml 
                                --jdepend-chart=${builddir}/pdepend/dependencies.svg 
-                               --overview-pyramid=${builddir}/pdepend/overview-pyramid.svg ${source}" 
+                               --overview-pyramid=${builddir}/pdepend/overview-pyramid.svg 
+                               --suffix=php
+                               --ignore=library/Zend,tests
+                               ${source}" 
               escape="false" />
     </target>
     
@@ -59,21 +83,17 @@
     <!-- ============================================  -->
     <target name="phpmd" description="Generate pmd.xml using PHPMD">
         <phpmd>
-            <fileset dir="${source}">
-                <include name="**/*.php" />
-            </fileset>
+            <fileset refid="php-files"/>
             <formatter type="xml" outfile="${builddir}/logs/pmd.xml"/>
         </phpmd>
-    </target>   
+    </target>  
 
     <!-- ============================================  -->
     <!-- Target: PHPCPD (Copy/Paste Detector)          -->
     <!-- ============================================  -->
-    <target name="phpcpd" description="Generate pmd-cpd.xml using PHPCPD">
+    <target name="phpcpd" description="Copy/Paste Detection">
         <phpcpd>
-            <fileset dir="${source}" id="filestocpd">
-                <include name="**/*.php" />
-            </fileset>
+            <fileset refid="php-files"/>
             <formatter type="pmd" outfile="${builddir}/logs/pmd-cpd.xml"/>
         </phpcpd>
     </target>
@@ -81,8 +101,13 @@
     <!-- ============================================  -->
     <!-- Target: PHPCS (PHP Code Sniffer)              -->
     <!-- ============================================  -->
-    <target name="phpcs" description="Generate checkstyle.xml using PHP_CodeSniffer">
-        <exec command="phpcs --standard=ZEND --report=checkstyle ${source}/ > ${builddir}/logs/checkstyle.xml" 
+    <target name="phpcs" description="Coding Standards Analysis">
+        <exec command="phpcs --standard=MyZend 
+                             --report=checkstyle 
+                             --report-file=${builddir}/logs/checkstyle.xml
+                             --ignore=library/Zend,tests,docs,scripts
+                             --extensions=php
+                             ${source}" 
               escape="false" />
     </target>
       
@@ -90,19 +115,24 @@
     <!-- Target: PHPDoc                                -->
     <!-- ============================================  -->
     <target name="phpdoc" description="Generate API documentation using PHPDocumentor">
-        <phpdoc title="API Documentation"
+        <phpdoc title="${project.name} API Documentation"
               destdir="${builddir}/api"
               sourcecode="false"
-              output="HTML:Smarty:PHP">
-            <fileset dir="${source}">
-                <include name="**/*.php" />
-            </fileset>
-            <projdocfileset dir="${builddir}/api">
-                <include name="README" />
-                <include name="INSTALL" />
-                <include name="CHANGELOG" />
-            </projdocfileset>
+              output="HTML:Smarty:PHP"
+              quiet="true">
+            <fileset refid="php-files"/>
         </phpdoc>
+    </target>
+    
+    <!-- ============================================  -->
+    <!-- Target: Docblox                               -->
+    <!-- ============================================  -->
+    <target name="docblox" description="Generate API documentation with DocBlox">
+        <docblox 
+            title="${project.name} API Documentation"
+            destdir="${builddir}/api/docblox">
+            <fileset refid="php-files"/>
+        </docblox>
     </target>
     
     <!-- ============================================  -->
@@ -117,8 +147,9 @@
     <!-- ============================================  -->
     <target name="phpcb" description="Aggregate tool output with PHP_CodeBrowser">
         <exec command="phpcb --log    ${builddir}/logs
+              --ignore build,library/Zend,tests,docs
               --source ${source}
               --output ${builddir}/code-browser" />
-    </target>
+    </target>   
     
 </project>
